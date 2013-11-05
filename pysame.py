@@ -76,17 +76,17 @@ class PySame(object):
         def __repr__(self):
             return '<[%d]>' % (self.i)
 
-    def __init__(self, boardsize=(20,15)):
-        self.surface = pygame.display.get_surface()
+    def __init__(self, surface, boardsize=(20,15), blocksize=32):
+        self.surface = surface
         self.boardsize = boardsize
+        self.blocksize = blocksize
         return
 
-    BGCOLOR = (40,40,80)
+    BGCOLOR = (0,0,80)
+    HICOLOR = (255,255,255)
     BORDERCOLOR = (0,0,0)
-    BLOCKSIZE = 20
 
     def repaint(self):
-        blocksize = 20
         self.surface.fill(self.BGCOLOR)
         (bwidth,bheight) = self.boardsize
         lines = []
@@ -97,9 +97,9 @@ class PySame(object):
                 if block is None: continue
                 rect = self._get_blockrect((x,y))
                 if (x,y) in self._highlighted:
-                    self.surface.fill((255,255,255), rect)
+                    self.surface.fill(self.HICOLOR, rect)
                 else:
-                    self.surface.fill(block.color, rect)
+                    self.surface.fill(self.surface.map_rgb(block.color), rect)
                 group = self._groups.get((x,y))
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
@@ -153,14 +153,14 @@ class PySame(object):
 
     def _get_blockpos(self, (x,y)):
         (bwidth,bheight) = self.boardsize
-        x = x/self.BLOCKSIZE
-        y = y/self.BLOCKSIZE
+        x = x/self.blocksize
+        y = y/self.blocksize
         if x < 0 or bwidth <= x or y < 0 or bheight <= y: return None
         return (x, y)
         
     def _get_blockrect(self, (x,y)):
-        return pygame.Rect(x*self.BLOCKSIZE, y*self.BLOCKSIZE,
-                           self.BLOCKSIZE, self.BLOCKSIZE)
+        return pygame.Rect(x*self.blocksize, y*self.blocksize,
+                           self.blocksize, self.blocksize)
 
     def _get_highlighted(self, focus):
         highlighted = set()
@@ -189,7 +189,7 @@ class PySame(object):
                     self._highlighted = highlighted
                 else:
                     self._highlighted = set()
-            elif ev.type == pygame.MOUSEBUTTONDOWN:
+            elif ev.type == pygame.MOUSEBUTTONUP:
                 self.remove_blocks(self._highlighted)
                 self._update_groups()
         pygame.time.set_timer(pygame.USEREVENT, 0)
@@ -198,7 +198,8 @@ class PySame(object):
 def main(argv):
     pygame.init()
     pygame.display.set_mode((640,480))
-    game = PySame()
+    surface = pygame.display.get_surface()
+    game = PySame(surface)
     game.init_blocks()
     return game.run()
 
