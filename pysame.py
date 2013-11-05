@@ -61,6 +61,9 @@ def get_groups(matrix, boardsize):
         groups[pos] = group
     return groups
 
+
+##  PySame
+##
 class PySame(object):
 
     class Block(object):
@@ -88,6 +91,12 @@ class PySame(object):
 
     def repaint(self):
         self.surface.fill(self.BGCOLOR)
+        self._paint_blocks()
+        self._paint_highlights()
+        pygame.display.flip()
+        return
+
+    def _paint_blocks(self):
         (bwidth,bheight) = self.boardsize
         lines = []
         for y in xrange(bheight):
@@ -96,20 +105,33 @@ class PySame(object):
                 block = row[x]
                 if block is None: continue
                 rect = self._get_blockrect((x,y))
-                if (x,y) in self._highlighted:
-                    self.surface.fill(self.HICOLOR, rect)
-                else:
-                    self.surface.fill(self.surface.map_rgb(block.color), rect)
                 group = self._groups.get((x,y))
+                self.surface.fill(self.surface.map_rgb(block.color), rect)
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
                 if group is not self._groups.get((x,y+1)):
                     lines.append((rect.bottomleft, rect.bottomright))
         for (p1,p2) in lines:
             pygame.draw.line(self.surface, self.BORDERCOLOR, p1, p2)
-        pygame.display.flip()
         return
 
+    def _paint_highlights(self):
+        lines = []
+        for (x,y) in self._highlighted:
+            rect = self._get_blockrect((x,y))
+            group = self._groups.get((x,y))
+            if group is not self._groups.get((x-1,y)):
+                lines.append((rect.topleft, rect.bottomleft))
+            if group is not self._groups.get((x+1,y)):
+                lines.append((rect.topright, rect.bottomright))
+            if group is not self._groups.get((x,y-1)):
+                lines.append((rect.topleft, rect.topright))
+            if group is not self._groups.get((x,y+1)):
+                lines.append((rect.bottomleft, rect.bottomright))
+        for (p1,p2) in lines:
+            pygame.draw.line(self.surface, self.HICOLOR, p1, p2, 2)
+        return
+        
     def init_blocks(self):
         self._matrix = []
         (bwidth,bheight) = self.boardsize
