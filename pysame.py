@@ -79,21 +79,67 @@ class PySame(object):
         def __repr__(self):
             return '<[%d]>' % (self.i)
 
-    def __init__(self, surface, boardsize=(20,15), blocksize=32):
+    class Particle(object):
+
+        def __init__(self, surface, rect, count):
+            self.surface = surface
+            self.rect = rect
+            self.count = count
+            return
+
+        def __repr__(self):
+            return '<Particle: %r %r>' % (self.surface, self.rect)
+
+        def update(self):
+            self.count -= 1
+            self.rect.y -= 2
+            return
+            
+    BGCOLOR = (0,0,80)
+    HICOLOR = (255,255,255)
+    SCORECOLOR = (255,255,255)
+    BORDERCOLOR = (0,0,0)
+
+    def __init__(self, surface, font, boardsize=(20,15), blocksize=32):
         self.surface = surface
+        self.font = font
         self.boardsize = boardsize
         self.blocksize = blocksize
         return
 
-    BGCOLOR = (0,0,80)
-    HICOLOR = (255,255,255)
-    BORDERCOLOR = (0,0,0)
+    def init_game(self):
+        self._score = 0
+        self._init_blocks()
+        self._particles = []
+        return
 
     def repaint(self):
         self.surface.fill(self.BGCOLOR)
         self._paint_blocks()
         self._paint_highlights()
+        for part in self._particles:
+            self.surface.blit(part.surface, part.rect)
+        self._render_text((u'SCORE: %d' % self._score), self.SCORECOLOR, (0,0))
         pygame.display.flip()
+        return
+
+    def update(self):
+        for part in self._particles:
+            part.update()
+        self._particles = [ part for part in self._particles if 0 < part.count ]
+        self.repaint()
+        return
+
+    def _add_text_particle(self, text, color, (x,y)):
+        glyph = self.font.render(text, 1, color)
+        (w,h) = glyph.get_size()
+        part = self.Particle(glyph, pygame.Rect(x-w/2, y-h/2, w, h), 10)
+        self._particles.append(part)
+        return
+
+    def _render_text(self, text, color, pos):
+        glyph = self.font.render(text, 1, color)
+        self.surface.blit(glyph, pos)
         return
 
     def _paint_blocks(self):
@@ -132,7 +178,7 @@ class PySame(object):
             pygame.draw.line(self.surface, self.HICOLOR, p1, p2, 2)
         return
         
-    def init_blocks(self):
+    def _init_blocks(self):
         self._matrix = []
         (bwidth,bheight) = self.boardsize
         for y in xrange(bheight):
@@ -140,7 +186,37 @@ class PySame(object):
         self._update_groups()
         return
 
-    def remove_blocks(self, blocks):
+    def _update_groups(self):
+        self._focus = None
+        self._highlighted = set()
+        self._groups = get_groups(self._matrix, self.boardsize)
+        self._movable = False
+        for group in self._groups.itervalues():
+            if 2 <= len(group.blocks):
+                self._movable = True
+        return
+
+    def _get_blocks_center(self, blocks):
+        (x,y,n) = (0,0,0)
+        for (x1,y1) in blocks:
+            x += x1
+            y += y1
+            n += 1
+        return (x/n,y/n)
+
+    def _remove_highlights(self):
+        assert self._highlighted
+        n = len(self._highlighted)
+        score = n*n
+        (x,y) = self._get_blocks_center(self._highlighted)
+        self._score += score
+        self._remove_blocks(self._highlighted)
+        self._update_groups()
+        pos = (x*self.blocksize+self.blocksize/2, y*self.blocksize+self.blocksize/2)
+        self._add_text_particle(str(score), self.SCORECOLOR, pos)
+        return
+
+    def _remove_blocks(self, blocks):
         (bwidth,bheight) = self.boardsize
         cols = set()
         for (x,y) in blocks:
@@ -165,12 +241,6 @@ class PySame(object):
             for y in xrange(bheight):
                 self._matrix[y][x] = None
             x += 1
-        return
-
-    def _update_groups(self):
-        self._groups = get_groups(self._matrix, self.boardsize)
-        self._focus = None
-        self._highlighted = set()
         return
 
     def _get_blockpos(self, (x,y)):
@@ -203,7 +273,7 @@ class PySame(object):
             elif ev.type == pygame.VIDEOEXPOSE:
                 self.repaint()
             elif ev.type == pygame.USEREVENT:
-                self.repaint()
+                self.update()
             elif ev.type == pygame.MOUSEMOTION:
                 self._focus = self._get_blockpos(ev.pos)
                 highlighted = self._get_highlighted(self._focus)
@@ -212,17 +282,19 @@ class PySame(object):
                 else:
                     self._highlighted = set()
             elif ev.type == pygame.MOUSEBUTTONUP:
-                self.remove_blocks(self._highlighted)
-                self._update_groups()
+                if self._highlighted:
+                    self._remove_highlights()
         pygame.time.set_timer(pygame.USEREVENT, 0)
         return
 
+# main
 def main(argv):
     pygame.init()
     pygame.display.set_mode((640,480))
+    font = pygame.font.Font('font.ttf', 24)
     surface = pygame.display.get_surface()
-    game = PySame(surface)
-    game.init_blocks()
+    game = PySame(surface, font, (5,5))
+    game.init_game()
     return game.run()
 
 if __name__ == '__main__': sys.exit(main(sys.argv))
