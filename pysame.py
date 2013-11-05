@@ -3,64 +3,6 @@ import sys
 import pygame
 import random
 
-class Group(object):
-
-    def __init__(self, i):
-        self.i = i
-        self.parent = None
-        self.blocks = []
-        return
-
-    def __repr__(self):
-        return '<%r: %r>' % (self.i, self.blocks)
-
-    def add(self, block):
-        self.blocks.append(block)
-        return
-
-def get_groups(matrix, boardsize):
-    (bwidth,bheight) = boardsize
-    josh = {}
-    i = 0
-    for y in xrange(bheight):
-        for x in xrange(bwidth):
-            pos0 = (x,y)
-            block0 = matrix[y][x]
-            if block0 is None: continue
-            if pos0 in josh:
-                group0 = josh[pos0]
-                while group0.parent is not None:
-                    group0 = group0.parent
-            else:
-                group0 = josh[pos0] = Group(i)
-                i += 1
-            neighbours = []
-            if x+1 < bwidth:
-                neighbours.append( ((x+1,y), matrix[y][x+1]) )
-            if y+1 < bheight:
-                neighbours.append( ((x,y+1), matrix[y+1][x]) )
-            for (pos1,block1) in neighbours:
-                if block1 is None: continue
-                if block1.color != block0.color: continue
-                if pos0 not in josh:
-                    assert 0
-                elif pos1 not in josh:
-                    josh[pos1] = josh[pos0]
-                else:
-                    group1 = josh[pos1]
-                    while group1.parent is not None:
-                        group1 = group1.parent
-                    assert group1 is not None
-                    if group1 is not group0:
-                        group1.parent = group0
-    groups = {}
-    for (pos,group) in josh.iteritems():
-        while group.parent is not None:
-            group = group.parent
-        group.add(pos)
-        groups[pos] = group
-    return groups
-
 
 ##  PySame
 ##
@@ -95,16 +37,31 @@ class PySame(object):
             self.rect.y -= 2
             return
             
+    class Group(object):
+
+        def __init__(self, i):
+            self.i = i
+            self.parent = None
+            self.blocks = []
+            return
+
+        def __repr__(self):
+            return '<%r: %r>' % (self.i, self.blocks)
+
+        def add(self, block):
+            self.blocks.append(block)
+            return
+
     BGCOLOR = (0,0,80)
     HICOLOR = (255,255,255)
     SCORECOLOR = (255,255,255)
     BORDERCOLOR = (0,0,0)
 
-    def __init__(self, surface, font, boardsize=(20,15), blocksize=32):
-        self.surface = surface
-        self.font = font
+    def __init__(self, boardsize=(20,15), blocksize=32):
         self.boardsize = boardsize
         self.blocksize = blocksize
+        self.surface = pygame.display.get_surface()
+        self.font = pygame.font.Font('font.ttf', 24)
         return
 
     def init_game(self):
@@ -189,7 +146,48 @@ class PySame(object):
     def _update_groups(self):
         self._focus = None
         self._highlighted = set()
-        self._groups = get_groups(self._matrix, self.boardsize)
+        # clustering
+        (bwidth,bheight) = self.boardsize
+        josh = {}
+        i = 0
+        for y in xrange(bheight):
+            for x in xrange(bwidth):
+                pos0 = (x,y)
+                block0 = self._matrix[y][x]
+                if block0 is None: continue
+                if pos0 in josh:
+                    group0 = josh[pos0]
+                    while group0.parent is not None:
+                        group0 = group0.parent
+                else:
+                    group0 = josh[pos0] = self.Group(i)
+                    i += 1
+                neighbours = []
+                if x+1 < bwidth:
+                    neighbours.append( ((x+1,y), self._matrix[y][x+1]) )
+                if y+1 < bheight:
+                    neighbours.append( ((x,y+1), self._matrix[y+1][x]) )
+                for (pos1,block1) in neighbours:
+                    if block1 is None: continue
+                    if block1.color != block0.color: continue
+                    if pos0 not in josh:
+                        assert 0
+                    elif pos1 not in josh:
+                        josh[pos1] = josh[pos0]
+                    else:
+                        group1 = josh[pos1]
+                        while group1.parent is not None:
+                            group1 = group1.parent
+                        assert group1 is not None
+                        if group1 is not group0:
+                            group1.parent = group0
+        self._groups = {}
+        for (pos,group) in josh.iteritems():
+            while group.parent is not None:
+                group = group.parent
+            group.add(pos)
+            self._groups[pos] = group
+        # ending detection.
         self._movable = False
         for group in self._groups.itervalues():
             if 2 <= len(group.blocks):
@@ -291,9 +289,7 @@ class PySame(object):
 def main(argv):
     pygame.init()
     pygame.display.set_mode((640,480))
-    font = pygame.font.Font('font.ttf', 24)
-    surface = pygame.display.get_surface()
-    game = PySame(surface, font, (5,5))
+    game = PySame()
     game.init_game()
     return game.run()
 
