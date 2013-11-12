@@ -8,14 +8,13 @@ import random
 ##
 class PySame(object):
 
+    COLORS = [ (255,0,0), (0,255,0), (220,220,0),
+               (0,0,220), (0,200,255) ]
+
     class Block(object):
         
-        COLORS = [ (255,0,0), (0,255,0), (220,220,0),
-                   (0,0,220), (0,200,255) ]
-        
-        def __init__(self):
-            self.i = random.randrange(len(self.COLORS))
-            self.color = self.COLORS[self.i]
+        def __init__(self, i):
+            self.i = i
             return
 
         def __repr__(self):
@@ -125,8 +124,10 @@ class PySame(object):
     def _init_blocks(self):
         self._block = []
         (bwidth,bheight) = self.boardsize
+        n = len(self.COLORS)
         for x in xrange(bwidth):
-            self._block.append([ self.Block() for y in xrange(bheight) ])
+            self._block.append([ self.Block(random.randrange(n))
+                                 for y in xrange(bheight) ])
         self._update_groups()
         return
 
@@ -192,7 +193,7 @@ class PySame(object):
                     neighbours.append( ((x,y+1), self._block[x][y+1]) )
                 for (pos1,block1) in neighbours:
                     if block1 is None: continue
-                    if block1.color != block0.color: continue
+                    if block1.i != block0.i: continue
                     if pos0 not in josh:
                         assert 0
                     elif pos1 not in josh:
@@ -239,7 +240,8 @@ class PySame(object):
                 if block is None: continue
                 rect = self._get_blockrect((x,y))
                 group = self._groups.get((x,y))
-                self.surface.fill(block.color, rect)
+                color = self.COLORS[block.i]
+                self.surface.fill(color, rect)
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
                 if group is not self._groups.get((x,y+1)):
