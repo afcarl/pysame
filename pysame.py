@@ -61,7 +61,7 @@ class PySame(object):
         self.boardsize = boardsize
         self.blocksize = blocksize
         self.surface = pygame.display.get_surface()
-        self.font = pygame.font.Font('prstartk.ttf', 24)
+        self.font = pygame.font.Font('prstartk.ttf', blocksize)
         self.sounds_remove = [
             pygame.mixer.Sound('remove1.wav'),
             pygame.mixer.Sound('remove2.wav'),
@@ -106,7 +106,6 @@ class PySame(object):
         if not self._selected: return
         n = len(self._selected)
         score = n*n
-        (x,y) = self._get_blocks_center(self._selected)
         self._score += score
         if 16 <= n:
             i = 3
@@ -117,10 +116,10 @@ class PySame(object):
         else:
             i = 0
         self.sounds_remove[i].play()
+        rect = self._get_blockrect_center(self._selected)
         self._remove_blocks(self._selected)
         self._update_groups()
-        pos = (x*self.blocksize+self.blocksize/2, y*self.blocksize+self.blocksize/2)
-        self._add_text_particle(str(score), self.SCORECOLOR, pos)
+        self._add_text_particle(str(n), self.SCORECOLOR, rect.center)
         return
 
     def _remove_blocks(self, blocks):
@@ -278,20 +277,21 @@ class PySame(object):
         return pygame.Rect(x*self.blocksize, y*self.blocksize,
                            self.blocksize, self.blocksize)
 
+    def _get_blockrect_center(self, blocks):
+        rect = None
+        for p in blocks:
+            if rect is None:
+                rect = self._get_blockrect(p)
+            else:
+                rect.union_ip(self._get_blockrect(p))
+        return rect
+
     def _get_selected(self, focus):
         selected = set()
         if focus in self._groups:
             group = self._groups[focus]
             selected.update(group.blocks)
         return selected
-
-    def _get_blocks_center(self, blocks):
-        (x,y,n) = (0,0,0)
-        for (x1,y1) in blocks:
-            x += x1
-            y += y1
-            n += 1
-        return (x/n,y/n)
 
     def run(self, msec=50):
         loop = True
