@@ -8,9 +8,6 @@ import random
 ##
 class PySame(object):
 
-    COLORS = [ (255,0,0), (0,255,0), (220,220,0),
-               (0,0,220), (0,200,255) ]
-
     class Particle(object):
 
         def __init__(self, surface, rect, count):
@@ -46,6 +43,8 @@ class PySame(object):
     HI_COLOR = (255,255,255)
     TEXT_COLOR = (255,255,255)
     BORDER_COLOR = (0,0,0)
+    BLOCK_COLORS = [ (255,0,0), (0,255,0), (220,220,0),
+                     (0,0,220), (0,200,255) ]
 
     def __init__(self, boardsize=(20,15), blocksize=32):
         self.boardsize = boardsize
@@ -117,7 +116,7 @@ class PySame(object):
     def _init_blocks(self):
         self._block = []
         (bwidth,bheight) = self.boardsize
-        n = len(self.COLORS)
+        n = len(self.BLOCK_COLORS)
         for x in xrange(bwidth):
             self._block.append([ random.randrange(n) for y in xrange(bheight) ])
         self._update_groups()
@@ -131,26 +130,26 @@ class PySame(object):
             rows.add(x)
         for x in rows:
             row = self._block[x]
-            y1 = bheight-1
-            while 0 <= y1:
+            y1 = 0
+            while y1 < bheight:
                 if row[y1] is not None:
-                    y1 -= 1
+                    y1 += 1
                     continue
-                for y0 in xrange(y1-1, -1, -1):
+                for y0 in xrange(y1+1, bheight):
                     if row[y0] is not None:
                         row[y1] = row[y0]
                         row[y0] = None
                         break
                 else:
                     row[y1] = None
-                    y1 -= 1
+                    y1 += 1
         x1 = 0
         while x1 < bwidth:
-            if self._block[x1][bheight-1] is not None:
+            if self._block[x1][0] is not None:
                 x1 += 1
                 continue
             for x0 in xrange(x1+1, bwidth):
-                if self._block[x1][bheight-1] is not None:
+                if self._block[x1][0] is not None:
                     self._block[x1] = self._block[x0]
                     self._block[x0] = None
                     break
@@ -231,12 +230,12 @@ class PySame(object):
                 if block is None: continue
                 rect = self._get_blockrect((x,y))
                 group = self._groups.get((x,y))
-                color = self.COLORS[block]
+                color = self.BLOCK_COLORS[block]
                 self.surface.fill(color, rect)
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
                 if group is not self._groups.get((x,y+1)):
-                    lines.append((rect.bottomleft, rect.bottomright))
+                    lines.append((rect.topleft, rect.topright))
         for (p1,p2) in lines:
             pygame.draw.line(self.surface, self.BORDER_COLOR, p1, p2)
         return
@@ -251,9 +250,9 @@ class PySame(object):
             if group is not self._groups.get((x+1,y)):
                 lines.append((rect.topright, rect.bottomright))
             if group is not self._groups.get((x,y-1)):
-                lines.append((rect.topleft, rect.topright))
-            if group is not self._groups.get((x,y+1)):
                 lines.append((rect.bottomleft, rect.bottomright))
+            if group is not self._groups.get((x,y+1)):
+                lines.append((rect.topleft, rect.topright))
         for (p1,p2) in lines:
             pygame.draw.line(self.surface, self.HI_COLOR, p1, p2, 2)
         return
@@ -261,12 +260,13 @@ class PySame(object):
     def _get_blockpos(self, (x,y)):
         (bwidth,bheight) = self.boardsize
         x = x/self.blocksize
-        y = y/self.blocksize
+        y = bheight-1-y/self.blocksize
         if x < 0 or bwidth <= x or y < 0 or bheight <= y: return None
         return (x, y)
         
     def _get_blockrect(self, (x,y)):
-        return pygame.Rect(x*self.blocksize, y*self.blocksize,
+        (bwidth,bheight) = self.boardsize
+        return pygame.Rect(x*self.blocksize, (bheight-1-y)*self.blocksize,
                            self.blocksize, self.blocksize)
 
     def _get_blockrect_center(self, blocks):
