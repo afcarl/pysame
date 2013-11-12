@@ -46,8 +46,7 @@ class PySame(object):
     BLOCK_COLORS = [ (255,0,0), (0,255,0), (220,220,0),
                      (0,0,220), (0,200,255) ]
 
-    def __init__(self, boardsize=(20,15), blocksize=32):
-        self.boardsize = boardsize
+    def __init__(self, blocksize=32):
         self.blocksize = blocksize
         self.surface = pygame.display.get_surface()
         self.font = pygame.font.Font('prstartk.ttf', blocksize)
@@ -59,9 +58,9 @@ class PySame(object):
             ]
         return
 
-    def init_game(self):
+    def init_game(self, boardsize=(20,15)):
         self._score = 0
-        self._init_blocks()
+        self._init_blocks(boardsize)
         self._particles = []
         return
 
@@ -113,17 +112,16 @@ class PySame(object):
         self._add_particle(surface, rect.center)
         return
 
-    def _init_blocks(self):
+    def _init_blocks(self, boardsize):
         self._block = []
-        (bwidth,bheight) = self.boardsize
+        (bwidth, self.boardheight) = boardsize
         n = len(self.BLOCK_COLORS)
         for x in xrange(bwidth):
-            self._block.append([ random.randrange(n) for y in xrange(bheight) ])
+            self._block.append([ random.randrange(n) for y in xrange(self.boardheight) ])
         self._update_groups()
         return
 
     def _remove_blocks(self, blocks):
-        (bwidth,bheight) = self.boardsize
         rows = set()
         for (x,y) in blocks:
             self._block[x][y] = None
@@ -131,11 +129,11 @@ class PySame(object):
         for x in rows:
             row = self._block[x]
             y1 = 0
-            while y1 < bheight:
+            while y1 < len(row):
                 if row[y1] is not None:
                     y1 += 1
                     continue
-                for y0 in xrange(y1+1, bheight):
+                for y0 in xrange(y1+1, len(row)):
                     if row[y0] is not None:
                         row[y1] = row[y0]
                         row[y0] = None
@@ -143,30 +141,17 @@ class PySame(object):
                 else:
                     row[y1] = None
                     y1 += 1
-        x1 = 0
-        while x1 < bwidth:
-            if self._block[x1][0] is not None:
-                x1 += 1
-                continue
-            for x0 in xrange(x1+1, bwidth):
-                if self._block[x1][0] is not None:
-                    self._block[x1] = self._block[x0]
-                    self._block[x0] = None
-                    break
-            else:
-                self._block[x1] = [ None for y in xrange(bheight) ]
-                x1 += 1
+        self._block = [ row for row in self._block if row[0] is not None ]
         return
 
     def _update_groups(self):
         self._focus = None
         self._selected = set()
         # clustering
-        (bwidth,bheight) = self.boardsize
         josh = {}
         i = 0
-        for y in xrange(bheight):
-            for x in xrange(bwidth):
+        for x in xrange(len(self._block)):
+            for y in xrange(self.boardheight):
                 pos0 = (x,y)
                 block0 = self._block[x][y]
                 if block0 is None: continue
@@ -178,9 +163,9 @@ class PySame(object):
                     group0 = josh[pos0] = self.Group(i)
                     i += 1
                 neighbours = []
-                if x+1 < bwidth:
+                if x+1 < len(self._block):
                     neighbours.append( ((x+1,y), self._block[x+1][y]) )
-                if y+1 < bheight:
+                if y+1 < self.boardheight:
                     neighbours.append( ((x,y+1), self._block[x][y+1]) )
                 for (pos1,block1) in neighbours:
                     if block1 is None: continue
@@ -221,11 +206,10 @@ class PySame(object):
         return
 
     def _paint_blocks(self):
-        (bwidth,bheight) = self.boardsize
         lines = []
-        for x in xrange(bwidth):
+        for x in xrange(len(self._block)):
             row = self._block[x]
-            for y in xrange(bheight):
+            for y in xrange(len(row)):
                 block = row[y]
                 if block is None: continue
                 rect = self._get_blockrect((x,y))
@@ -258,15 +242,13 @@ class PySame(object):
         return
         
     def _get_blockpos(self, (x,y)):
-        (bwidth,bheight) = self.boardsize
         x = x/self.blocksize
-        y = bheight-1-y/self.blocksize
-        if x < 0 or bwidth <= x or y < 0 or bheight <= y: return None
+        y = self.boardheight-1-y/self.blocksize
+        if x < 0 or len(self._block) <= x or y < 0 or self.boardheight <= y: return None
         return (x, y)
         
     def _get_blockrect(self, (x,y)):
-        (bwidth,bheight) = self.boardsize
-        return pygame.Rect(x*self.blocksize, (bheight-1-y)*self.blocksize,
+        return pygame.Rect(x*self.blocksize, (self.boardheight-1-y)*self.blocksize,
                            self.blocksize, self.blocksize)
 
     def _get_blockrect_center(self, blocks):
