@@ -79,7 +79,7 @@ class PySame(object):
     def repaint(self):
         self.surface.fill(self.BGCOLOR)
         self._paint_blocks()
-        self._paint_highlights()
+        self._paint_selection()
         for part in self._particles:
             self.surface.blit(part.surface, part.rect)
         self._render_text((u'SCORE: %d' % self._score), self.SCORECOLOR, (0,0))
@@ -93,11 +93,20 @@ class PySame(object):
         self.repaint()
         return
 
-    def remove_highlights(self):
-        assert self._highlighted
-        n = len(self._highlighted)
+    def update_selection(self, p):
+        self._focus = self._get_blockpos(p)
+        selected = self._get_selected(self._focus)
+        if 2 <= len(selected):
+            self._selected = selected
+        else:
+            self._selected = set()
+        return
+        
+    def remove_selection(self):
+        if not self._selected: return
+        n = len(self._selected)
         score = n*n
-        (x,y) = self._get_blocks_center(self._highlighted)
+        (x,y) = self._get_blocks_center(self._selected)
         self._score += score
         if 16 <= n:
             i = 3
@@ -108,7 +117,7 @@ class PySame(object):
         else:
             i = 0
         self.sounds_remove[i].play()
-        self._remove_blocks(self._highlighted)
+        self._remove_blocks(self._selected)
         self._update_groups()
         pos = (x*self.blocksize+self.blocksize/2, y*self.blocksize+self.blocksize/2)
         self._add_text_particle(str(score), self.SCORECOLOR, pos)
@@ -121,24 +130,34 @@ class PySame(object):
             self._matrix[y][x] = None
             cols.add(x)
         for x in cols:
-            y = bheight-1
-            for y0 in xrange(y, 0, -1):
-                if self._matrix[y0][x] is not None:
-                    self._matrix[y][x] = self._matrix[y0][x]
-                    y -= 1
-            while 0 <= y:
-                self._matrix[y][x] = None
-                y -= 1
-        x = 0
-        for x0 in xrange(bwidth):
-            if self._matrix[bheight-1][x0] is not None:
+            y1 = bheight-1
+            while 0 <= y1:
+                if self._matrix[y1][x] is not None:
+                    y1 -= 1
+                    continue
+                for y0 in xrange(y1-1, -1, -1):
+                    if self._matrix[y0][x] is not None:
+                        self._matrix[y1][x] = self._matrix[y0][x]
+                        self._matrix[y0][x] = None
+                        break
+                else:
+                    self._matrix[y1][x] = None
+                    y1 -= 1
+        x1 = 0
+        while x1 < bwidth:
+            if self._matrix[bheight-1][x1] is not None:
+                x1 += 1
+                continue
+            for x0 in xrange(x1+1, bwidth):
+                if self._matrix[bheight-1][x0] is not None:
+                    for y in xrange(bheight):
+                        self._matrix[y][x1] = self._matrix[y][x0]
+                        self._matrix[y][x0] = None
+                    break
+            else:
                 for y in xrange(bheight):
-                    self._matrix[y][x] = self._matrix[y][x0]
-                x += 1
-        while x < bwidth:
-            for y in xrange(bheight):
-                self._matrix[y][x] = None
-            x += 1
+                    self._matrix[y][x1] = None
+                x1 += 1
         return
 
     def _init_blocks(self):
@@ -151,7 +170,7 @@ class PySame(object):
 
     def _update_groups(self):
         self._focus = None
-        self._highlighted = set()
+        self._selected = set()
         # clustering
         (bwidth,bheight) = self.boardsize
         josh = {}
@@ -231,9 +250,9 @@ class PySame(object):
             pygame.draw.line(self.surface, self.BORDERCOLOR, p1, p2)
         return
 
-    def _paint_highlights(self):
+    def _paint_selection(self):
         lines = []
-        for (x,y) in self._highlighted:
+        for (x,y) in self._selected:
             rect = self._get_blockrect((x,y))
             group = self._groups.get((x,y))
             if group is not self._groups.get((x-1,y)):
@@ -259,12 +278,12 @@ class PySame(object):
         return pygame.Rect(x*self.blocksize, y*self.blocksize,
                            self.blocksize, self.blocksize)
 
-    def _get_highlighted(self, focus):
-        highlighted = set()
+    def _get_selected(self, focus):
+        selected = set()
         if focus in self._groups:
             group = self._groups[focus]
-            highlighted.update(group.blocks)
-        return highlighted
+            selected.update(group.blocks)
+        return selected
 
     def _get_blocks_center(self, blocks):
         (x,y,n) = (0,0,0)
@@ -288,15 +307,10 @@ class PySame(object):
             elif ev.type == pygame.USEREVENT:
                 self.update()
             elif ev.type == pygame.MOUSEMOTION:
-                self._focus = self._get_blockpos(ev.pos)
-                highlighted = self._get_highlighted(self._focus)
-                if 2 <= len(highlighted):
-                    self._highlighted = highlighted
-                else:
-                    self._highlighted = set()
+                self.update_selection(ev.pos)
             elif ev.type == pygame.MOUSEBUTTONUP:
-                if self._highlighted:
-                    self.remove_highlights()
+                self.remove_selection()
+                self.update_selection(ev.pos)
         pygame.time.set_timer(pygame.USEREVENT, 0)
         return
 
