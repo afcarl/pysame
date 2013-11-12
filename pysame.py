@@ -11,15 +11,6 @@ class PySame(object):
     COLORS = [ (255,0,0), (0,255,0), (220,220,0),
                (0,0,220), (0,200,255) ]
 
-    class Block(object):
-        
-        def __init__(self, i):
-            self.i = i
-            return
-
-        def __repr__(self):
-            return '<[%d]>' % (self.i)
-
     class Particle(object):
 
         def __init__(self, surface, rect, count):
@@ -51,10 +42,10 @@ class PySame(object):
             self.blocks.append(block)
             return
 
-    BGCOLOR = (0,0,80)
-    HICOLOR = (255,255,255)
-    SCORECOLOR = (255,255,255)
-    BORDERCOLOR = (0,0,0)
+    BG_COLOR = (0,0,80)
+    HI_COLOR = (255,255,255)
+    TEXT_COLOR = (255,255,255)
+    BORDER_COLOR = (0,0,0)
 
     def __init__(self, boardsize=(20,15), blocksize=32):
         self.boardsize = boardsize
@@ -76,12 +67,13 @@ class PySame(object):
         return
 
     def repaint(self):
-        self.surface.fill(self.BGCOLOR)
+        self.surface.fill(self.BG_COLOR)
         self._paint_blocks()
         self._paint_selection()
         for part in self._particles:
             self.surface.blit(part.surface, part.rect)
-        self._render_text((u'SCORE: %d' % self._score), self.SCORECOLOR, (0,0))
+        text = (u'SCORE: %d' % self._score)
+        self._render_text(text, self.TEXT_COLOR, (0,0))
         pygame.display.flip()
         return
 
@@ -118,7 +110,8 @@ class PySame(object):
         rect = self._get_blockrect_center(self._selected)
         self._remove_blocks(self._selected)
         self._update_groups()
-        self._add_text_particle(str(n), self.SCORECOLOR, rect.center)
+        surface = self.font.render(str(n), 1, self.TEXT_COLOR)
+        self._add_particle(surface, rect.center)
         return
 
     def _init_blocks(self):
@@ -126,8 +119,7 @@ class PySame(object):
         (bwidth,bheight) = self.boardsize
         n = len(self.COLORS)
         for x in xrange(bwidth):
-            self._block.append([ self.Block(random.randrange(n))
-                                 for y in xrange(bheight) ])
+            self._block.append([ random.randrange(n) for y in xrange(bheight) ])
         self._update_groups()
         return
 
@@ -193,7 +185,7 @@ class PySame(object):
                     neighbours.append( ((x,y+1), self._block[x][y+1]) )
                 for (pos1,block1) in neighbours:
                     if block1 is None: continue
-                    if block1.i != block0.i: continue
+                    if block1 != block0: continue
                     if pos0 not in josh:
                         assert 0
                     elif pos1 not in josh:
@@ -218,10 +210,9 @@ class PySame(object):
                 self._movable = True
         return
 
-    def _add_text_particle(self, text, color, (x,y)):
-        glyph = self.font.render(text, 1, color)
-        (w,h) = glyph.get_size()
-        part = self.Particle(glyph, pygame.Rect(x-w/2, y-h/2, w, h), 10)
+    def _add_particle(self, surface, (x,y)):
+        (w,h) = surface.get_size()
+        part = self.Particle(surface, pygame.Rect(x-w/2, y-h/2, w, h), 10)
         self._particles.append(part)
         return
 
@@ -240,14 +231,14 @@ class PySame(object):
                 if block is None: continue
                 rect = self._get_blockrect((x,y))
                 group = self._groups.get((x,y))
-                color = self.COLORS[block.i]
+                color = self.COLORS[block]
                 self.surface.fill(color, rect)
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
                 if group is not self._groups.get((x,y+1)):
                     lines.append((rect.bottomleft, rect.bottomright))
         for (p1,p2) in lines:
-            pygame.draw.line(self.surface, self.BORDERCOLOR, p1, p2)
+            pygame.draw.line(self.surface, self.BORDER_COLOR, p1, p2)
         return
 
     def _paint_selection(self):
@@ -264,7 +255,7 @@ class PySame(object):
             if group is not self._groups.get((x,y+1)):
                 lines.append((rect.bottomleft, rect.bottomright))
         for (p1,p2) in lines:
-            pygame.draw.line(self.surface, self.HICOLOR, p1, p2, 2)
+            pygame.draw.line(self.surface, self.HI_COLOR, p1, p2, 2)
         return
         
     def _get_blockpos(self, (x,y)):
