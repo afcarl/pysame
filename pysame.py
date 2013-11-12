@@ -61,7 +61,7 @@ class PySame(object):
         self.boardsize = boardsize
         self.blocksize = blocksize
         self.surface = pygame.display.get_surface()
-        self.font = pygame.font.Font('font.ttf', 24)
+        self.font = pygame.font.Font('prstartk.ttf', 24)
         self.sounds_remove = [
             pygame.mixer.Sound('remove1.wav'),
             pygame.mixer.Sound('remove2.wav'),
