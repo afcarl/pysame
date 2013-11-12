@@ -122,49 +122,48 @@ class PySame(object):
         self._add_text_particle(str(n), self.SCORECOLOR, rect.center)
         return
 
+    def _init_blocks(self):
+        self._block = []
+        (bwidth,bheight) = self.boardsize
+        for x in xrange(bwidth):
+            self._block.append([ self.Block() for y in xrange(bheight) ])
+        self._update_groups()
+        return
+
     def _remove_blocks(self, blocks):
         (bwidth,bheight) = self.boardsize
-        cols = set()
+        rows = set()
         for (x,y) in blocks:
-            self._matrix[y][x] = None
-            cols.add(x)
-        for x in cols:
+            self._block[x][y] = None
+            rows.add(x)
+        for x in rows:
+            row = self._block[x]
             y1 = bheight-1
             while 0 <= y1:
-                if self._matrix[y1][x] is not None:
+                if row[y1] is not None:
                     y1 -= 1
                     continue
                 for y0 in xrange(y1-1, -1, -1):
-                    if self._matrix[y0][x] is not None:
-                        self._matrix[y1][x] = self._matrix[y0][x]
-                        self._matrix[y0][x] = None
+                    if row[y0] is not None:
+                        row[y1] = row[y0]
+                        row[y0] = None
                         break
                 else:
-                    self._matrix[y1][x] = None
+                    row[y1] = None
                     y1 -= 1
         x1 = 0
         while x1 < bwidth:
-            if self._matrix[bheight-1][x1] is not None:
+            if self._block[x1][bheight-1] is not None:
                 x1 += 1
                 continue
             for x0 in xrange(x1+1, bwidth):
-                if self._matrix[bheight-1][x0] is not None:
-                    for y in xrange(bheight):
-                        self._matrix[y][x1] = self._matrix[y][x0]
-                        self._matrix[y][x0] = None
+                if self._block[x1][bheight-1] is not None:
+                    self._block[x1] = self._block[x0]
+                    self._block[x0] = None
                     break
             else:
-                for y in xrange(bheight):
-                    self._matrix[y][x1] = None
+                self._block[x1] = [ None for y in xrange(bheight) ]
                 x1 += 1
-        return
-
-    def _init_blocks(self):
-        self._matrix = []
-        (bwidth,bheight) = self.boardsize
-        for y in xrange(bheight):
-            self._matrix.append([ self.Block() for x in xrange(bwidth) ])
-        self._update_groups()
         return
 
     def _update_groups(self):
@@ -177,7 +176,7 @@ class PySame(object):
         for y in xrange(bheight):
             for x in xrange(bwidth):
                 pos0 = (x,y)
-                block0 = self._matrix[y][x]
+                block0 = self._block[x][y]
                 if block0 is None: continue
                 if pos0 in josh:
                     group0 = josh[pos0]
@@ -188,9 +187,9 @@ class PySame(object):
                     i += 1
                 neighbours = []
                 if x+1 < bwidth:
-                    neighbours.append( ((x+1,y), self._matrix[y][x+1]) )
+                    neighbours.append( ((x+1,y), self._block[x+1][y]) )
                 if y+1 < bheight:
-                    neighbours.append( ((x,y+1), self._matrix[y+1][x]) )
+                    neighbours.append( ((x,y+1), self._block[x][y+1]) )
                 for (pos1,block1) in neighbours:
                     if block1 is None: continue
                     if block1.color != block0.color: continue
@@ -233,14 +232,14 @@ class PySame(object):
     def _paint_blocks(self):
         (bwidth,bheight) = self.boardsize
         lines = []
-        for y in xrange(bheight):
-            row = self._matrix[y]
-            for x in xrange(bwidth):
-                block = row[x]
+        for x in xrange(bwidth):
+            row = self._block[x]
+            for y in xrange(bheight):
+                block = row[y]
                 if block is None: continue
                 rect = self._get_blockrect((x,y))
                 group = self._groups.get((x,y))
-                self.surface.fill(self.surface.map_rgb(block.color), rect)
+                self.surface.fill(block.color, rect)
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
                 if group is not self._groups.get((x,y+1)):
