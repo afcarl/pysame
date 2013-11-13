@@ -231,15 +231,10 @@ class PySame(object):
         self.blocksize = blocksize
         self.surface = pygame.display.get_surface()
         self.font = pygame.font.Font('prstartk.ttf', blocksize)
-        self.sounds_remove = [
-            pygame.mixer.Sound('remove1.wav'),
-            pygame.mixer.Sound('remove2.wav'),
-            pygame.mixer.Sound('remove3.wav'),
-            pygame.mixer.Sound('remove4.wav'),
-            ]
+        self.sound_remove = pygame.mixer.Sound('remove2.wav')
         return
 
-    def init_game(self, boardsize=(20,15)):
+    def start(self, boardsize=(20,15)):
         self._board = Board(boardsize, blocksize=self.blocksize)
         self._score = 0
         self._particles = []
@@ -247,8 +242,10 @@ class PySame(object):
 
     def repaint(self):
         self.surface.fill(self.BG_COLOR)
+        (width,height) = self.surface.get_size()
         board = self._board.render()
-        self.surface.blit(board, (0,0))
+        (w,h) = board.get_size()
+        self.surface.blit(board, ((width-w)/2,height-h))
         for part in self._particles:
             self.surface.blit(part.surface, part.rect)
         text = (u'SCORE: %d' % self._score)
@@ -293,15 +290,7 @@ class PySame(object):
                 n = self._board.get_selection()
                 if n:
                     self._score += n*n
-                    if 16 <= n:
-                        i = 3
-                    elif 8 <= n:
-                        i = 2
-                    elif 4 <= n:
-                        i = 1
-                    else:
-                        i = 0
-                    self.sounds_remove[i].play()
+                    self.sound_remove.play()
                     rect = self._board.get_selection_rect()
                     surface = self.font.render(str(n), 1, self.TEXT_COLOR)
                     self._add_particle(surface, rect.center)
@@ -316,7 +305,7 @@ def main(argv):
     pygame.init()
     pygame.display.set_mode((640,480))
     game = PySame()
-    game.init_game()
+    game.start()
     return game.run()
 
 if __name__ == '__main__': sys.exit(main(sys.argv))
