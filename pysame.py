@@ -253,25 +253,44 @@ class PySame(object):
         self.surface.blit(glyph, pos)
         return
 
-    def _get_block_pos(self, (x,y)):
+    def _get_board_pos(self):
         (width,height) = self.surface.get_size()
         (w,h) = self._board.get_size()
-        x -= (width-w)/2
-        y = height-y
-        return self._board.get_block_pos((x,y))
+        x = (width-w)/2
+        y = height-h
+        return (x,y)
+
+    def _get_block_pos(self, (x,y)):
+        (w,h) = self._board.get_size()
+        (dx,dy) = self._get_board_pos()
+        return self._board.get_block_pos((x-dx,h-(y-dy)))
 
     def _update_selection(self, pos):
         try:
             p = self._get_block_pos(pos)
-            blocks = self._board.get_blocks(p)
-            if 2 <= len(blocks):
-                self._selection = blocks
-            else:
-                self._selection = set()
         except ValueError:
-            pass
+            return
+        blocks = self._board.get_blocks(p)
+        if 2 <= len(blocks):
+            self._selection = blocks
+        else:
+            self._selection = set()
         return
 
+    def _remove_selection(self):
+        n = len(self._selection)
+        if not n: return
+        self._score += n*n
+        self.sound_remove.play()
+        rect = self._board.get_block_rect(self._selection)
+        surface = self.font.render(str(n), 1, self.TEXT_COLOR)
+        (x,y) = rect.center
+        (dx,dy) = self._get_board_pos()
+        self._add_particle(surface, (x+dx,y+dy))
+        self._board.remove_blocks(self._selection)
+        self._selection = set()
+        return
+        
     def run(self, msec=50):
         loop = True
         pygame.time.set_timer(pygame.USEREVENT, msec)
@@ -288,15 +307,7 @@ class PySame(object):
             elif ev.type == pygame.MOUSEMOTION:
                 self._update_selection(ev.pos)
             elif ev.type == pygame.MOUSEBUTTONUP:
-                n = len(self._selection)
-                if n:
-                    self._score += n*n
-                    self.sound_remove.play()
-                    rect = self._board.get_block_rect(self._selection)
-                    surface = self.font.render(str(n), 1, self.TEXT_COLOR)
-                    self._add_particle(surface, rect.center)
-                    self._board.remove_blocks(self._selection)
-                    self._selection = set()
+                self._remove_selection()
                 self._update_selection(ev.pos)
         pygame.time.set_timer(pygame.USEREVENT, 0)
         return
