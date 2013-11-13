@@ -33,7 +33,6 @@ class Board(object):
         self.bheight = bheight
         self.blocksize = blocksize
         self._block = []
-        self._focus = None
         self._selected = None
         n = len(self.BLOCK_COLORS)
         for x in xrange(bwidth):
@@ -44,23 +43,33 @@ class Board(object):
     def get_bwidth(self):
         return len(self._block)
 
+    def get_size(self):
+        return (self.get_bwidth()*self.blocksize,
+                self.bheight*self.blocksize)
+
     def get_selection(self):
         return len(self._selected)
 
     def get_selection_rect(self):
         return self._get_blockrect(self._selected)
         
+    def get_blockpos(self, (x,y)):
+        bwidth = self.get_bwidth()
+        x = x/self.blocksize
+        y = y/self.blocksize
+        if x < 0 or bwidth <= x or y < 0 or self.bheight <= y:
+            raise ValueError((x,y))
+        return (x, y)
+        
     def render(self):
-        surface = pygame.Surface((self.get_bwidth()*self.blocksize,
-                                  self.bheight*self.blocksize))
+        surface = pygame.Surface(self.get_size())
         surface.fill(self.BG_COLOR)
         self._paint_blocks(surface)
         self._paint_selection(surface)
         return surface
 
     def update_selection(self, p):
-        self._focus = self._get_blockpos(p)
-        selected = self._get_selected(self._focus)
+        selected = self._get_selected(p)
         if 2 <= len(selected):
             self._selected = selected
         else:
@@ -69,11 +78,9 @@ class Board(object):
         
     def remove_selection(self):
         self._remove_blocks(self._selected)
-        self._update_groups()
         return
 
     def _update_groups(self):
-        self._focus = None
         self._selected = set()
         # clustering
         josh = {}
@@ -139,6 +146,7 @@ class Board(object):
                     row[y1] = None
                     y1 += 1
         self._block = [ row for row in self._block if row[0] is not None ]
+        self._update_groups()
         return
 
     def _paint_blocks(self, surface):
@@ -177,13 +185,6 @@ class Board(object):
         for (p1,p2) in lines:
             pygame.draw.line(surface, self.HI_COLOR, p1, p2, 2)
         return
-        
-    def _get_blockpos(self, (x,y)):
-        bwidth = self.get_bwidth()
-        x = x/self.blocksize
-        y = self.bheight-1-y/self.blocksize
-        if x < 0 or bwidth <= x or y < 0 or self.bheight <= y: return None
-        return (x, y)
         
     def _get_blockrect(self, blocks):
         rect = None
@@ -271,6 +272,13 @@ class PySame(object):
         self.surface.blit(glyph, pos)
         return
 
+    def _get_blockpos(self, (x,y)):
+        (width,height) = self.surface.get_size()
+        (w,h) = self._board.get_size()
+        x -= (width-w)/2
+        y = height-y
+        return self._board.get_blockpos((x,y))
+
     def run(self, msec=50):
         loop = True
         pygame.time.set_timer(pygame.USEREVENT, msec)
@@ -285,7 +293,11 @@ class PySame(object):
             elif ev.type == pygame.USEREVENT:
                 self.update()
             elif ev.type == pygame.MOUSEMOTION:
-                self._board.update_selection(ev.pos)
+                try:
+                    p = self._get_blockpos(ev.pos)
+                    self._board.update_selection(p)
+                except ValueError:
+                    pass
             elif ev.type == pygame.MOUSEBUTTONUP:
                 n = self._board.get_selection()
                 if n:
@@ -295,7 +307,11 @@ class PySame(object):
                     surface = self.font.render(str(n), 1, self.TEXT_COLOR)
                     self._add_particle(surface, rect.center)
                     self._board.remove_selection()
-                self._board.update_selection(ev.pos)
+                try:
+                    p = self._get_blockpos(ev.pos)
+                    self._board.update_selection(p)
+                except ValueError:
+                    pass
         pygame.time.set_timer(pygame.USEREVENT, 0)
         return
 
