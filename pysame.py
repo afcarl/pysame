@@ -33,7 +33,6 @@ class Board(object):
         self.bheight = bheight
         self.blocksize = blocksize
         self._block = []
-        self._selected = None
         n = len(self.BLOCK_COLORS)
         for x in xrange(bwidth):
             self._block.append([ random.randrange(n) for y in xrange(bheight) ])
@@ -47,41 +46,64 @@ class Board(object):
         return (self.get_bwidth()*self.blocksize,
                 self.bheight*self.blocksize)
 
-    def get_selection(self):
-        return len(self._selected)
-
-    def get_selection_rect(self):
-        return self._get_blockrect(self._selected)
+    def get_blocks(self, pos):
+        blocks = set()
+        if pos in self._groups:
+            group = self._groups[pos]
+            blocks.update(group.blocks)
+        return blocks
         
-    def get_blockpos(self, (x,y)):
+    def get_block_rect(self, blocks):
+        rect = None
+        for (x,y) in blocks:
+            r = pygame.Rect(x*self.blocksize, (self.bheight-1-y)*self.blocksize,
+                            self.blocksize, self.blocksize)
+            if rect is None:
+                rect = r
+            else:
+                rect.union_ip(r)
+        return rect
+        
+    def get_block_pos(self, (x,y)):
         bwidth = self.get_bwidth()
         x = x/self.blocksize
         y = y/self.blocksize
         if x < 0 or bwidth <= x or y < 0 or self.bheight <= y:
             raise ValueError((x,y))
         return (x, y)
+
+    def remove_blocks(self, blocks):
+        rows = set()
+        for (x,y) in blocks:
+            self._block[x][y] = None
+            rows.add(x)
+        for x in rows:
+            row = self._block[x]
+            y1 = 0
+            while y1 < len(row):
+                if row[y1] is not None:
+                    y1 += 1
+                    continue
+                for y0 in xrange(y1+1, len(row)):
+                    if row[y0] is not None:
+                        row[y1] = row[y0]
+                        row[y0] = None
+                        break
+                else:
+                    row[y1] = None
+                    y1 += 1
+        self._block = [ row for row in self._block if row[0] is not None ]
+        self._update_groups()
+        return
         
-    def render(self):
+    def render(self, selection):
         surface = pygame.Surface(self.get_size())
         surface.fill(self.BG_COLOR)
         self._paint_blocks(surface)
-        self._paint_selection(surface)
+        self._paint_selection(surface, selection)
         return surface
 
-    def update_selection(self, p):
-        selected = self._get_selected(p)
-        if 2 <= len(selected):
-            self._selected = selected
-        else:
-            self._selected = set()
-        return
-        
-    def remove_selection(self):
-        self._remove_blocks(self._selected)
-        return
-
     def _update_groups(self):
-        self._selected = set()
         # clustering
         josh = {}
         i = 0
@@ -125,30 +147,6 @@ class Board(object):
             self._groups[pos] = group
         return
 
-    def _remove_blocks(self, blocks):
-        rows = set()
-        for (x,y) in blocks:
-            self._block[x][y] = None
-            rows.add(x)
-        for x in rows:
-            row = self._block[x]
-            y1 = 0
-            while y1 < len(row):
-                if row[y1] is not None:
-                    y1 += 1
-                    continue
-                for y0 in xrange(y1+1, len(row)):
-                    if row[y0] is not None:
-                        row[y1] = row[y0]
-                        row[y0] = None
-                        break
-                else:
-                    row[y1] = None
-                    y1 += 1
-        self._block = [ row for row in self._block if row[0] is not None ]
-        self._update_groups()
-        return
-
     def _paint_blocks(self, surface):
         bwidth = self.get_bwidth()
         lines = []
@@ -157,7 +155,7 @@ class Board(object):
             for y in xrange(len(row)):
                 block = row[y]
                 if block is None: continue
-                rect = self._get_blockrect([(x,y)])
+                rect = self.get_block_rect([(x,y)])
                 group = self._groups.get((x,y))
                 color = self.BLOCK_COLORS[block]
                 surface.fill(color, rect)
@@ -169,10 +167,10 @@ class Board(object):
             pygame.draw.line(surface, self.BORDER_COLOR, p1, p2)
         return
 
-    def _paint_selection(self, surface):
+    def _paint_selection(self, surface, selection):
         lines = []
-        for (x,y) in self._selected:
-            rect = self._get_blockrect([(x,y)])
+        for (x,y) in selection:
+            rect = self.get_block_rect([(x,y)])
             group = self._groups.get((x,y))
             if group is not self._groups.get((x-1,y)):
                 lines.append((rect.topleft, rect.bottomleft))
@@ -185,24 +183,6 @@ class Board(object):
         for (p1,p2) in lines:
             pygame.draw.line(surface, self.HI_COLOR, p1, p2, 2)
         return
-        
-    def _get_blockrect(self, blocks):
-        rect = None
-        for (x,y) in blocks:
-            r = pygame.Rect(x*self.blocksize, (self.bheight-1-y)*self.blocksize,
-                            self.blocksize, self.blocksize)
-            if rect is None:
-                rect = r
-            else:
-                rect.union_ip(r)
-        return rect
-
-    def _get_selected(self, focus):
-        selected = set()
-        if focus in self._groups:
-            group = self._groups[focus]
-            selected.update(group.blocks)
-        return selected
 
 
 ##  PySame
@@ -239,12 +219,13 @@ class PySame(object):
         self._board = Board(boardsize, blocksize=self.blocksize)
         self._score = 0
         self._particles = []
+        self._selection = set()
         return
 
     def repaint(self):
         self.surface.fill(self.BG_COLOR)
         (width,height) = self.surface.get_size()
-        board = self._board.render()
+        board = self._board.render(self._selection)
         (w,h) = board.get_size()
         self.surface.blit(board, ((width-w)/2,height-h))
         for part in self._particles:
@@ -272,12 +253,24 @@ class PySame(object):
         self.surface.blit(glyph, pos)
         return
 
-    def _get_blockpos(self, (x,y)):
+    def _get_block_pos(self, (x,y)):
         (width,height) = self.surface.get_size()
         (w,h) = self._board.get_size()
         x -= (width-w)/2
         y = height-y
-        return self._board.get_blockpos((x,y))
+        return self._board.get_block_pos((x,y))
+
+    def _update_selection(self, pos):
+        try:
+            p = self._get_block_pos(pos)
+            blocks = self._board.get_blocks(p)
+            if 2 <= len(blocks):
+                self._selection = blocks
+            else:
+                self._selection = set()
+        except ValueError:
+            pass
+        return
 
     def run(self, msec=50):
         loop = True
@@ -293,25 +286,18 @@ class PySame(object):
             elif ev.type == pygame.USEREVENT:
                 self.update()
             elif ev.type == pygame.MOUSEMOTION:
-                try:
-                    p = self._get_blockpos(ev.pos)
-                    self._board.update_selection(p)
-                except ValueError:
-                    pass
+                self._update_selection(ev.pos)
             elif ev.type == pygame.MOUSEBUTTONUP:
-                n = self._board.get_selection()
+                n = len(self._selection)
                 if n:
                     self._score += n*n
                     self.sound_remove.play()
-                    rect = self._board.get_selection_rect()
+                    rect = self._board.get_block_rect(self._selection)
                     surface = self.font.render(str(n), 1, self.TEXT_COLOR)
                     self._add_particle(surface, rect.center)
-                    self._board.remove_selection()
-                try:
-                    p = self._get_blockpos(ev.pos)
-                    self._board.update_selection(p)
-                except ValueError:
-                    pass
+                    self._board.remove_blocks(self._selection)
+                    self._selection = set()
+                self._update_selection(ev.pos)
         pygame.time.set_timer(pygame.USEREVENT, 0)
         return
 
