@@ -52,8 +52,6 @@ class Board(object):
     BG_COLOR = (0,0,80)
     HI_COLOR = (255,255,255)
     BORDER_COLOR = (0,0,0)
-    BLOCK_COLORS = [ (255,0,0), (0,255,0), (220,220,0),
-                     (0,0,220), (0,200,255) ]
     
     class Group(object):
 
@@ -70,13 +68,14 @@ class Board(object):
             self.blocks.append(block)
             return
 
-    def __init__(self, (bwidth, bheight), blocksize=32):
+    def __init__(self, (bwidth, bheight), images,
+                 ntypes=5, blocksize=32):
         self.bheight = bheight
         self.blocksize = blocksize
+        self.images = images
         self._block = []
-        n = len(self.BLOCK_COLORS)
         for x in xrange(bwidth):
-            row = [ random.randrange(n) for y in xrange(bheight) ]
+            row = [ random.randrange(ntypes) for y in xrange(bheight) ]
             self._block.append(row)
         self._update_groups()
         return
@@ -98,7 +97,8 @@ class Board(object):
     def get_block_rect(self, blocks):
         rect = None
         for (x,y) in blocks:
-            r = pygame.Rect(x*self.blocksize, (self.bheight-1-y)*self.blocksize,
+            r = pygame.Rect(x*self.blocksize,
+                            (self.bheight-1-y)*self.blocksize,
                             self.blocksize, self.blocksize)
             if rect is None:
                 rect = r
@@ -199,8 +199,9 @@ class Board(object):
                 if block is None: continue
                 rect = self.get_block_rect([(x,y)])
                 group = self._groups.get((x,y))
-                color = self.BLOCK_COLORS[block]
-                surface.fill(color, rect)
+                src = pygame.Rect(block*self.blocksize, 0,
+                                  self.blocksize, self.blocksize)
+                surface.blit(self.images, rect, src)
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
                 if group is not self._groups.get((x,y+1)):
@@ -254,12 +255,14 @@ class PySame(object):
         self.resource = resource
         self.blocksize = blocksize
         self.surface = surface
-        self.font = resource.get_font('prstartk.ttf', blocksize)
-        self.sound_remove = resource.get_sound('remove2.wav')
+        self.font = self.resource.get_font('prstartk.ttf', blocksize)
+        self.sound_remove = self.resource.get_sound('remove2.wav')
         return
 
     def start(self, boardsize=(20,15)):
-        self._board = Board(boardsize, blocksize=self.blocksize)
+        images = self.resource.get_image('blocks.png')
+        self._board = Board(boardsize, images,
+                            blocksize=self.blocksize)
         self._score = 0
         self._particles = []
         self._selection = set()
