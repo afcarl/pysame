@@ -64,18 +64,31 @@ class Board(object):
         def __repr__(self):
             return '<%r: %r>' % (self.i, self.blocks)
 
+        def __len__(self):
+            return len(self.blocks)
+
+        def __iter__(self):
+            return iter(self.blocks)
+
         def add(self, block):
             self.blocks.append(block)
             return
 
     def __init__(self, (bwidth, bheight), images,
-                 ntypes=5, blocksize=32):
+                 blocksize=32, ntypes=6, skew=1.5):
         self.bheight = bheight
         self.blocksize = blocksize
         self.images = images
+        types = range(ntypes)
+        random.shuffle(types)
+        dist = []
+        n = 1.0
+        for b in types:
+            dist.extend([b]*int(n))
+            n *= skew
         self._block = []
         for x in xrange(bwidth):
-            row = [ random.randrange(ntypes) for y in xrange(bheight) ]
+            row = [ random.choice(dist) for y in xrange(bheight) ]
             self._block.append(row)
         self._update_groups()
         return
@@ -91,7 +104,7 @@ class Board(object):
         blocks = set()
         if pos in self._groups:
             group = self._groups[pos]
-            blocks.update(group.blocks)
+            blocks.update(group)
         return blocks
         
     def get_block_rect(self, blocks):
@@ -138,6 +151,13 @@ class Board(object):
         self._update_groups()
         return
         
+    def get_ngroups(self):
+        groups = set()
+        for group in self._groups.itervalues():
+            if 2 <= len(group):
+                groups.add(group)
+        return len(groups)
+
     def render(self, selection):
         surface = pygame.Surface(self.get_size())
         surface.fill(self.BG_COLOR)
