@@ -49,9 +49,8 @@ class Resource(object):
 ##
 class Board(object):
 
-    BG_COLOR = (0,0,80)
-    HI_COLOR = (255,255,255)
     BORDER_COLOR = (0,0,0)
+    HIGHLIGHT_COLOR = (255,255,255)
     
     class Group(object):
 
@@ -74,11 +73,14 @@ class Board(object):
             self.blocks.append(block)
             return
 
-    def __init__(self, (bwidth, bheight), images,
-                 blocksize=32, ntypes=6, skew=1.5):
+    def __init__(self, (bwidth, bheight), images, blocksize=32):
+        self.bwidth = bwidth
         self.bheight = bheight
-        self.blocksize = blocksize
         self.images = images
+        self.blocksize = blocksize
+        return
+
+    def reset(self, ntypes=6, skew=1.5):
         types = range(ntypes)
         random.shuffle(types)
         dist = []
@@ -87,8 +89,8 @@ class Board(object):
             dist.extend([b]*int(n))
             n *= skew
         self._block = []
-        for x in xrange(bwidth):
-            row = [ random.choice(dist) for y in xrange(bheight) ]
+        for x in xrange(self.bwidth):
+            row = [ random.choice(dist) for y in xrange(self.bheight) ]
             self._block.append(row)
         self._update_groups()
         return
@@ -159,8 +161,8 @@ class Board(object):
         return len(groups)
 
     def render(self, selection):
-        surface = pygame.Surface(self.get_size())
-        surface.fill(self.BG_COLOR)
+        surface = pygame.Surface(self.get_size(), pygame.SRCALPHA)
+        surface.fill((0,0,0,0))
         self._paint_blocks(surface)
         self._paint_selection(surface, selection)
         return surface
@@ -244,7 +246,7 @@ class Board(object):
             if group is not self._groups.get((x,y+1)):
                 lines.append((rect.topleft, rect.topright))
         for (p1,p2) in lines:
-            pygame.draw.line(surface, self.HI_COLOR, p1, p2, 2)
+            pygame.draw.line(surface, self.HIGHLIGHT_COLOR, p1, p2, 2)
         return
 
 
@@ -271,18 +273,20 @@ class PySame(object):
     BG_COLOR = (0,0,80)
     TEXT_COLOR = (255,255,255)
 
-    def __init__(self, resource, surface, blocksize=32):
+    def __init__(self, resource, surface,
+                 boardsize=(20,15), blocksize=32):
         self.resource = resource
         self.blocksize = blocksize
         self.surface = surface
         self.font = self.resource.get_font('prstartk.ttf', blocksize)
         self.sound_remove = self.resource.get_sound('remove2.wav')
+        self._board = Board(boardsize,
+                            self.resource.get_image('blocks.png'),
+                            blocksize=self.blocksize)
         return
 
-    def start(self, boardsize=(20,15)):
-        images = self.resource.get_image('blocks.png')
-        self._board = Board(boardsize, images,
-                            blocksize=self.blocksize)
+    def start(self):
+        self._board.reset()
         self._score = 0
         self._particles = []
         self._selection = set()
