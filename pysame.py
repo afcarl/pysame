@@ -102,6 +102,17 @@ class Board(object):
         return (self.get_bwidth()*self.blocksize,
                 self.bheight*self.blocksize)
 
+    def get_ngroups(self):
+        groups = set()
+        for group in self._groups.itervalues():
+            if 2 <= len(group):
+                groups.add(group)
+        return len(groups)
+
+    def get_nblocks(self):
+        return sum( len([ 1 for b in row if b is not None])
+                    for row in self._block )
+
     def get_blocks(self, pos):
         blocks = set()
         if pos in self._groups:
@@ -153,13 +164,6 @@ class Board(object):
         self._update_groups()
         return
         
-    def get_ngroups(self):
-        groups = set()
-        for group in self._groups.itervalues():
-            if 2 <= len(group):
-                groups.add(group)
-        return len(groups)
-
     def render(self, selection):
         surface = pygame.Surface(self.get_size(), pygame.SRCALPHA)
         surface.fill((0,0,0,0))
@@ -272,6 +276,8 @@ class PySame(object):
             
     BG_COLOR = (0,0,80)
     TEXT_COLOR = (255,255,255)
+    SHADOW_COLOR = (40,40,40)
+    SHADOW_DIST = 2
 
     def __init__(self, resource, surface,
                  boardsize=(20,15), blocksize=32):
@@ -286,6 +292,7 @@ class PySame(object):
         return
 
     def start(self):
+        self._ingame = True
         self._board.reset()
         self._score = 0
         self._particles = []
@@ -300,8 +307,12 @@ class PySame(object):
         self.surface.blit(board, ((width-w)/2,height-h))
         for part in self._particles:
             self.surface.blit(part.surface, part.rect)
-        text = (u'SCORE: %d' % self._score)
+        text = (u'SCORE:%d' % self._score)
         self._render_text(text, self.TEXT_COLOR, (0,0))
+        text = (u'LEFT:%d' % self._board.get_nblocks())
+        self._render_text(text, self.TEXT_COLOR, (-1,0))
+        if not self._ingame:
+            self._render_text(u'GAME OVER', self.TEXT_COLOR)
         pygame.display.flip()
         return
 
@@ -313,15 +324,48 @@ class PySame(object):
         self.repaint()
         return
 
+    def key_down(self, key):
+        if self._ingame:
+            pass
+        else:
+            self.start()
+        return
+
+    def mouse_move(self, p):
+        if self._ingame:
+            self._update_selection(p)
+        return
+
+    def mouse_button(self, p):
+        if self._ingame:
+            self._remove_selection()
+            self._update_selection(p)
+        else:
+            self.start()
+        return
+
     def _add_particle(self, surface, (x,y)):
         (w,h) = surface.get_size()
         part = self.Particle(surface, pygame.Rect(x-w/2, y-h/2, w, h), 10)
         self._particles.append(part)
         return
 
-    def _render_text(self, text, color, pos):
+    def _render_text(self, text, color, pos=None):
         glyph = self.font.render(text, 1, color)
-        self.surface.blit(glyph, pos)
+        (width,height) = self.surface.get_size()
+        (w,h) = glyph.get_size()
+        if pos is None:
+            (x,y) = ((width-w)/2, (height-h)/2)
+        else:
+            (x,y) = pos
+            if x < 0:
+                x += width-w
+            if y < 0:
+                y += height-h
+        d = self.SHADOW_DIST
+        shadow = self.font.render(text, 1, self.SHADOW_COLOR)
+        self.surface.blit(shadow, (x+d,y+d))
+        self.surface.blit(glyph, (x,y))
         return
 
     def _get_board_pos(self):
@@ -359,6 +403,8 @@ class PySame(object):
         (dx,dy) = self._get_board_pos()
         self._add_particle(surface, (x+dx,y+dy))
         self._board.remove_blocks(self._selection)
+        if self._board.get_ngroups() == 0:
+            self._ingame = False
         self._selection = set()
         return
         
@@ -370,16 +416,18 @@ class PySame(object):
             if ev.type == pygame.QUIT:
                 loop = False
             elif ev.type == pygame.KEYDOWN:
-                loop = False
+                if ev.key == pygame.K_ESCAPE:
+                    loop = False
+                else:
+                    self.key_down(ev.key)
             elif ev.type == pygame.VIDEOEXPOSE:
                 self.repaint()
             elif ev.type == pygame.USEREVENT:
                 self.update()
             elif ev.type == pygame.MOUSEMOTION:
-                self._update_selection(ev.pos)
+                self.mouse_move(ev.pos)
             elif ev.type == pygame.MOUSEBUTTONUP:
-                self._remove_selection()
-                self._update_selection(ev.pos)
+                self.mouse_button(ev.pos)
         pygame.time.set_timer(pygame.USEREVENT, 0)
         return
 
