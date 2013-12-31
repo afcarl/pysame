@@ -1,9 +1,50 @@
 #!/usr/bin/env python
 import sys
+import os.path
 import pygame
 import random
 
 
+##  Resource
+##
+class Resource(object):
+
+    def __init__(self, path):
+        self.path = path
+        self._font = {}
+        self._image = {}
+        self._sound = {}
+        return
+        
+    def get_font(self, name, size):
+        k = (name, size)
+        if k in self._font:
+            font = self._font[k]
+        else:
+            path = os.path.join(self.path, name)
+            font = pygame.font.Font(path, size)
+            self._font[k] = font
+        return font
+
+    def get_image(self, name):
+        if name in self._image:
+            image = self._image[name]
+        else:
+            path = os.path.join(self.path, name)
+            image = pygame.image.load(path)
+            self._image[name] = image
+        return image
+
+    def get_sound(self, name):
+        if name in self._sound:
+            sound = self._sound[name]
+        else:
+            path = os.path.join(self.path, name)
+            sound = pygame.mixer.Sound(path)
+            self._sound[name] = sound
+        return sound
+
+        
 ##  Board
 ##
 class Board(object):
@@ -35,7 +76,8 @@ class Board(object):
         self._block = []
         n = len(self.BLOCK_COLORS)
         for x in xrange(bwidth):
-            self._block.append([ random.randrange(n) for y in xrange(bheight) ])
+            row = [ random.randrange(n) for y in xrange(bheight) ]
+            self._block.append(row)
         self._update_groups()
         return
 
@@ -208,11 +250,12 @@ class PySame(object):
     BG_COLOR = (0,0,80)
     TEXT_COLOR = (255,255,255)
 
-    def __init__(self, blocksize=32):
+    def __init__(self, resource, surface, blocksize=32):
+        self.resource = resource
         self.blocksize = blocksize
-        self.surface = pygame.display.get_surface()
-        self.font = pygame.font.Font('prstartk.ttf', blocksize)
-        self.sound_remove = pygame.mixer.Sound('remove2.wav')
+        self.surface = surface
+        self.font = resource.get_font('prstartk.ttf', blocksize)
+        self.sound_remove = resource.get_sound('remove2.wav')
         return
 
     def start(self, boardsize=(20,15)):
@@ -238,7 +281,8 @@ class PySame(object):
     def update(self):
         for part in self._particles:
             part.update()
-        self._particles = [ part for part in self._particles if 0 < part.count ]
+        self._particles = [ part for part in self._particles
+                            if 0 < part.count ]
         self.repaint()
         return
 
@@ -314,10 +358,13 @@ class PySame(object):
 
 # main
 def main(argv):
+    dirname = os.path.dirname(argv[0])
     pygame.mixer.pre_init(22050)
     pygame.init()
     pygame.display.set_mode((640,480))
-    game = PySame()
+    resource = Resource(os.path.join(dirname, 'resource'))
+    surface = pygame.display.get_surface()
+    game = PySame(resource, surface)
     game.start()
     return game.run()
 
