@@ -32,7 +32,7 @@ class Resource(object):
         else:
             path = os.path.join(self.path, name)
             image = pygame.image.load(path)
-            self._image[name] = image
+            self._image[name] = image.convert()
         return image
 
     def get_sound(self, name):
@@ -301,14 +301,16 @@ class PySame(object):
         self._score = 0
         self._particles = []
         self._selection = set()
+        self._boardcache = None
         return
 
     def repaint(self):
         self.surface.fill(self.BG_COLOR)
         (width,height) = self.surface.get_size()
-        board = self._board.render(self._selection)
-        (w,h) = board.get_size()
-        self.surface.blit(board, ((width-w)/2,height-h))
+        if self._boardcache is None:
+            self._boardcache = self._board.render(self._selection)
+        (w,h) = self._boardcache.get_size()
+        self.surface.blit(self._boardcache, ((width-w)/2,height-h))
         for part in self._particles:
             self.surface.blit(part.surface, part.rect)
         text = (u'SCORE:%d' % self._score)
@@ -387,9 +389,12 @@ class PySame(object):
             return
         blocks = self._board.get_blocks(p)
         if 2 <= len(blocks):
-            self._selection = blocks
+            selection = blocks
         else:
-            self._selection = set()
+            selection = set()
+        if self._selection != selection:
+            self._selection = selection
+            self._boardcache = None
         return
 
     def _remove_selection(self):
@@ -406,6 +411,7 @@ class PySame(object):
         if self._board.get_ngroups() == 0:
             self._ingame = False
         self._selection = set()
+        self._boardcache = None
         return
         
     def run(self, msec=50):
