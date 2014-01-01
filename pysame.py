@@ -278,7 +278,6 @@ class PySame(object):
             self.rect.y -= 2
             return
             
-    BG_COLOR = (0,0,80)
     TEXT_COLOR = (255,255,255)
     SHADOW_COLOR = (40,40,40)
     SHADOW_DIST = 2
@@ -289,6 +288,7 @@ class PySame(object):
         self.blocksize = blocksize
         self.surface = surface
         self.font = self.resource.get_font('prstartk.ttf', blocksize)
+        self.background = self.resource.get_image('background.png')
         self.sound_remove = self.resource.get_sound('remove2.wav')
         self._board = Board(boardsize,
                             self.resource.get_image('blocks.png'),
@@ -305,7 +305,7 @@ class PySame(object):
         return
 
     def repaint(self):
-        self.surface.fill(self.BG_COLOR)
+        self.surface.blit(self.background, (0,0))
         (width,height) = self.surface.get_size()
         if self._boardcache is None:
             self._boardcache = self._board.render(self._selection)
