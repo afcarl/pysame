@@ -224,10 +224,10 @@ class Board(object):
                 block = row[y]
                 if block is None: continue
                 rect = self.get_block_rect([(x,y)])
-                group = self._groups.get((x,y))
                 src = pygame.Rect(block*self.blocksize, 0,
                                   self.blocksize, self.blocksize)
                 surface.blit(self.images, rect, src)
+                group = self._groups.get((x,y))
                 if group is not self._groups.get((x+1,y)):
                     lines.append((rect.topright, rect.bottomright))
                 if group is not self._groups.get((x,y+1)):
@@ -239,7 +239,11 @@ class Board(object):
     def _paint_selection(self, surface, selection):
         lines = []
         for (x,y) in selection:
+            block = self._block[x][y]
             rect = self.get_block_rect([(x,y)])
+            src = pygame.Rect(block*self.blocksize, self.blocksize,
+                              self.blocksize, self.blocksize)
+            surface.blit(self.images, rect, src)
             group = self._groups.get((x,y))
             if group is not self._groups.get((x-1,y)):
                 lines.append((rect.topleft, rect.bottomleft))
@@ -308,9 +312,9 @@ class PySame(object):
         for part in self._particles:
             self.surface.blit(part.surface, part.rect)
         text = (u'SCORE:%d' % self._score)
-        self._render_text(text, self.TEXT_COLOR, (0,0))
+        self._render_text(text, self.TEXT_COLOR, (-1,-1), (-1,-1))
         text = (u'LEFT:%d' % self._board.get_nblocks())
-        self._render_text(text, self.TEXT_COLOR, (-1,0))
+        self._render_text(text, self.TEXT_COLOR, (+1,-1), (+1,-1))
         if not self._ingame:
             self._render_text(u'GAME OVER', self.TEXT_COLOR)
         pygame.display.flip()
@@ -350,18 +354,14 @@ class PySame(object):
         self._particles.append(part)
         return
 
-    def _render_text(self, text, color, pos=None):
+    def _render_text(self, text, color, pos=(0,0), align=(0,0)):
         glyph = self.font.render(text, 1, color)
         (width,height) = self.surface.get_size()
         (w,h) = glyph.get_size()
-        if pos is None:
-            (x,y) = ((width-w)/2, (height-h)/2)
-        else:
-            (x,y) = pos
-            if x < 0:
-                x += width-w
-            if y < 0:
-                y += height-h
+        (px,py) = pos
+        (dx,dy) = align
+        x = (1+px)*width/2-(1+dx)*w/2
+        y = (1+py)*height/2-(1+dy)*h/2
         d = self.SHADOW_DIST
         shadow = self.font.render(text, 1, self.SHADOW_COLOR)
         self.surface.blit(shadow, (x+d,y+d))
